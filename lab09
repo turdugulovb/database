@@ -1,0 +1,137 @@
+baita@MacBook-Air ~ % psql -U postgres -d postgres
+psql (18.6 (Homebrew))
+Type "help" for help.
+
+postgres=# DROP TABLE IF EXISTS loans, book_authors, books, authors, members, student_phones, enrollments, courses, departments, students CASCADE;
+NOTICE:  table "loans" does not exist, skipping
+NOTICE:  table "book_authors" does not exist, skipping
+NOTICE:  table "books" does not exist, skipping
+NOTICE:  table "authors" does not exist, skipping
+NOTICE:  table "members" does not exist, skipping
+NOTICE:  table "student_phones" does not exist, skipping
+NOTICE:  table "enrollments" does not exist, skipping
+NOTICE:  table "courses" does not exist, skipping
+NOTICE:  table "departments" does not exist, skipping
+NOTICE:  table "students" does not exist, skipping
+DROP TABLE
+
+postgres=# CREATE TABLE students (
+    student_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
+);
+CREATE TABLE
+
+postgres=# CREATE TABLE student_phones (
+    student_id INTEGER REFERENCES students(student_id) ON DELETE CASCADE,
+    phone_number VARCHAR(15),
+    phone_type VARCHAR(20),
+    PRIMARY KEY (student_id, phone_number)
+);
+CREATE TABLE
+
+postgres=# \d student_phones
+                  Table "public.student_phones"
+    Column    |         Type          | Collation | Nullable | Default 
+--------------+-----------------------+-----------+----------+---------
+ student_id   | integer               |           | not null | 
+ phone_number | character varying(15) |           | not null | 
+ phone_type   | character varying(20) |           |          | 
+Indexes:
+    "student_phones_pkey" PRIMARY KEY, btree (student_id, phone_number)
+Foreign-key constraints:
+    "student_phones_student_id_fkey" FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE
+
+postgres=# CREATE TABLE authors (
+    author_id SERIAL PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    birth_date DATE
+);
+CREATE TABLE
+
+postgres=# CREATE TABLE books (
+    book_id SERIAL PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    isbn VARCHAR(13) UNIQUE,
+    publication_year INTEGER,
+    available_copies INTEGER DEFAULT 1
+);
+CREATE TABLE
+
+postgres=# CREATE TABLE book_authors (
+    book_id INTEGER REFERENCES books(book_id) ON DELETE CASCADE,
+    author_id INTEGER REFERENCES authors(author_id) ON DELETE CASCADE,
+    PRIMARY KEY (book_id, author_id)
+);
+CREATE TABLE
+
+postgres=# CREATE TABLE members (
+    member_id SERIAL PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    phone VARCHAR(15),
+    membership_date DATE DEFAULT CURRENT_DATE
+);
+CREATE TABLE
+
+postgres=# CREATE TABLE loans (
+    loan_id SERIAL PRIMARY KEY,
+    member_id INTEGER NOT NULL REFERENCES members(member_id) ON DELETE CASCADE,
+    book_id INTEGER NOT NULL REFERENCES books(book_id) ON DELETE CASCADE,
+    loan_date DATE DEFAULT CURRENT_DATE,
+    due_date DATE NOT NULL,
+    return_date DATE,
+    late_fee DECIMAL(10,2) DEFAULT 0.00
+);
+CREATE TABLE
+
+postgres=# INSERT INTO authors (first_name, last_name, birth_date) VALUES 
+('George', 'Orwell', '1903-06-25'),
+('J.K.', 'Rowling', '1965-07-31');
+INSERT 0 2
+
+postgres=# INSERT INTO books (title, isbn, publication_year, available_copies) VALUES 
+('1984', '9780451524935', 1949, 3),
+('Harry Potter and the Philosophers Stone', '9780747532699', 1997, 5);
+INSERT 0 2
+
+postgres=# INSERT INTO book_authors (book_id, author_id) VALUES (1, 1), (2, 2);
+INSERT 0 2
+
+postgres=# INSERT INTO members (first_name, last_name, email, phone) VALUES 
+('Alice', 'Smith', 'alice@example.com', '555-0199');
+INSERT 0 1
+
+postgres=# INSERT INTO loans (member_id, book_id, due_date) VALUES 
+(1, 1, CURRENT_DATE + INTERVAL '14 days');
+INSERT 0 1
+
+postgres=# \d loans
+                                  Table "public.loans"
+   Column    |     Type      | Collation | Nullable |                Default                
+-------------+---------------+-----------+----------+---------------------------------------
+ loan_id     | integer       |           | not null | nextval('loans_loan_id_seq'::regclass)
+ member_id   | integer       |           | not null | 
+ book_id     | integer       |           | not null | 
+ loan_date   | date          |           |          | CURRENT_DATE
+ due_date    | date          |           | not null | 
+ return_date | date          |           |          | 
+ late_fee    | numeric(10,2) |           |          | 0.00
+Indexes:
+    "loans_pkey" PRIMARY KEY, btree (loan_id)
+Foreign-key constraints:
+    "loans_book_id_fkey" FOREIGN KEY (book_id) REFERENCES books(book_id) ON DELETE CASCADE
+    "loans_member_id_fkey" FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE
+
+postgres=# SELECT m.first_name || ' ' || m.last_name AS member, b.title, l.loan_date, l.due_date
+FROM loans l
+JOIN members m ON l.member_id = m.member_id
+JOIN books b ON l.book_id = b.book_id;
+   member    | title |  loan_date  |  due_date  
+-------------+-------+-------------+------------
+ Alice Smith | 1984  | 2026-11-03  | 2026-11-17
+(1 row)
+
+postgres=# \q
+baita@MacBook-Air ~ %
