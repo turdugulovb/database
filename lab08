@@ -1,0 +1,183 @@
+baita@MacBook-Air ~ % psql -U postgres -d postgres
+psql (18.6 (Homebrew))
+Type "help" for help.
+
+postgres=# DROP TABLE IF EXISTS user_profiles, users, employees, departments, comments, blog_posts, student_enrollments, courses, students CASCADE;
+NOTICE:  table "user_profiles" does not exist, skipping
+NOTICE:  table "users" does not exist, skipping
+NOTICE:  table "employees" does not exist, skipping
+NOTICE:  table "departments" does not exist, skipping
+NOTICE:  table "comments" does not exist, skipping
+NOTICE:  table "blog_posts" does not exist, skipping
+NOTICE:  table "student_enrollments" does not exist, skipping
+NOTICE:  table "courses" does not exist, skipping
+DROP TABLE
+
+postgres=# CREATE TABLE users (
+    user_id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE
+
+postgres=# CREATE TABLE user_profiles (
+    profile_id SERIAL PRIMARY KEY,
+    user_id INTEGER UNIQUE NOT NULL,
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    bio TEXT,
+    profile_picture_url VARCHAR(255),
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+CREATE TABLE
+
+postgres=# \d user_profiles
+                                        Table "public.user_profiles"
+       Column        |          Type          | Collation | Nullable |                   Default                    
+---------------------+------------------------+-----------+----------+----------------------------------------------
+ profile_id          | integer                |           | not null | nextval('user_profiles_profile_id_seq'::regclass)
+ user_id             | integer                |           | not null | 
+ first_name          | character varying(50)  |           |          | 
+ last_name           | character varying(50)  |           |          | 
+ bio                 | text                   |           |          | 
+ profile_picture_url | character varying(255) |           |          | 
+Indexes:
+    "user_profiles_pkey" PRIMARY KEY, btree (profile_id)
+    "user_profiles_user_id_key" UNIQUE CONSTRAINT, btree (user_id)
+Foreign-key constraints:
+    "user_profiles_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+
+postgres=# INSERT INTO users (username, email) VALUES ('johndoe', 'john@example.com');
+INSERT 0 1
+
+postgres=# INSERT INTO user_profiles (user_id, first_name, last_name, bio) VALUES (1, 'John', 'Doe', 'Software developer passionate about databases');
+INSERT 0 1
+
+postgres=# INSERT INTO user_profiles (user_id, first_name, last_name) VALUES (1, 'Jane', 'Smith');
+ERROR:  duplicate key value violates unique constraint "user_profiles_user_id_key"
+DETAIL:  Key (user_id)=(1) already exists.
+
+postgres=# CREATE TABLE departments (
+    dept_id SERIAL PRIMARY KEY,
+    dept_name VARCHAR(100) NOT NULL,
+    manager_name VARCHAR(100),
+    budget DECIMAL(10,2)
+);
+CREATE TABLE
+
+postgres=# CREATE TABLE employees (
+    emp_id SERIAL PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    position VARCHAR(100),
+    salary DECIMAL(10,2),
+    hire_date DATE DEFAULT CURRENT_DATE,
+    dept_id INTEGER NOT NULL,
+    FOREIGN KEY (dept_id) REFERENCES departments(dept_id) ON DELETE RESTRICT
+);
+CREATE TABLE
+
+postgres=# INSERT INTO departments (dept_name, manager_name, budget) VALUES
+('Engineering', 'Alice Johnson', 500000.00),
+('Marketing', 'Bob Wilson', 200000.00);
+INSERT 0 2
+
+postgres=# INSERT INTO employees (first_name, last_name, position, salary, dept_id) VALUES
+('John', 'Smith', 'Software Engineer', 75000.00, 1),
+('Jane', 'Doe', 'Senior Developer', 85000.00, 1),
+('Mike', 'Brown', 'DevOps Engineer', 80000.00, 1),
+('Sarah', 'Davis', 'Marketing Specialist', 55000.00, 2);
+INSERT 0 4
+
+postgres=# SELECT d.dept_name, e.first_name, e.last_name, e.position
+FROM departments d
+JOIN employees e ON d.dept_id = e.dept_id
+ORDER BY d.dept_name, e.last_name;
+  dept_name  | first_name | last_name |       position       
+-------------+------------+-----------+----------------------
+ Engineering | Mike       | Brown     | DevOps Engineer
+ Marketing   | Sarah      | Davis     | Marketing Specialist
+ Engineering | Jane       | Doe       | Senior Developer
+ Engineering | John       | Smith     | Software Engineer
+(4 rows)
+
+postgres=# CREATE TABLE students (
+    student_id SERIAL PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    email VARCHAR(100) UNIQUE,
+    enrollment_date DATE DEFAULT CURRENT_DATE
+);
+CREATE TABLE
+
+postgres=# CREATE TABLE courses (
+    course_id SERIAL PRIMARY KEY,
+    course_code VARCHAR(10) UNIQUE NOT NULL,
+    course_name VARCHAR(100) NOT NULL,
+    credits INTEGER NOT NULL,
+    instructor VARCHAR(100)
+);
+CREATE TABLE
+
+postgres=# CREATE TABLE student_enrollments (
+    enrollment_id SERIAL PRIMARY KEY,
+    student_id INTEGER NOT NULL,
+    course_id INTEGER NOT NULL,
+    enrollment_date DATE DEFAULT CURRENT_DATE,
+    grade CHAR(2),
+    FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE,
+    FOREIGN KEY (course_id) REFERENCES courses(course_id) ON DELETE CASCADE,
+    UNIQUE(student_id, course_id)
+);
+CREATE TABLE
+
+postgres=# \d student_enrollments
+                                     Table "public.student_enrollments"
+     Column      |     Type     | Collation | Nullable |                        Default                         
+-----------------+--------------+-----------+----------+--------------------------------------------------------
+ enrollment_id   | integer      |           | not null | nextval('student_enrollments_enrollment_id_seq'::regclass)
+ student_id      | integer      |           | not null | 
+ course_id       | integer      |           | not null | 
+ enrollment_date | date         |           |          | CURRENT_DATE
+ grade           | character(2) |           |          | 
+Indexes:
+    "student_enrollments_pkey" PRIMARY KEY, btree (enrollment_id)
+    "student_enrollments_student_id_course_id_key" UNIQUE CONSTRAINT, btree (student_id, course_id)
+Foreign-key constraints:
+    "student_enrollments_course_id_fkey" FOREIGN KEY (course_id) REFERENCES courses(course_id) ON DELETE CASCADE
+    "student_enrollments_student_id_fkey" FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE
+
+postgres=# INSERT INTO students (first_name, last_name, email) VALUES
+('Alice', 'Johnson', 'alice@university.edu'),
+('Bob', 'Smith', 'bob@university.edu'),
+('Carol', 'Wilson', 'carol@university.edu');
+INSERT 0 3
+
+postgres=# INSERT INTO courses (course_code, course_name, credits, instructor) VALUES
+('CS101', 'Introduction to Programming', 3, 'Dr. Brown'),
+('CS201', 'Data Structures', 4, 'Dr. Davis'),
+('MATH101', 'Calculus I', 4, 'Dr. Wilson');
+INSERT 0 3
+
+postgres=# INSERT INTO student_enrollments (student_id, course_id, grade) VALUES
+(1, 1, 'A'), (1, 2, 'B+'), (2, 1, 'A-'), (2, 3, 'B'), (3, 2, 'A'), (3, 3, 'A-');
+INSERT 0 6
+
+postgres=# SELECT s.first_name || ' ' || s.last_name AS student_name, c.course_code, c.course_name, se.grade
+FROM students s
+JOIN student_enrollments se ON s.student_id = se.student_id
+JOIN courses c ON se.course_id = c.course_id
+ORDER BY s.last_name, c.course_code;
+ student_name  | course_code |         course_name         | grade 
+---------------+-------------+-----------------------------+-------
+ Alice Johnson | CS101       | Introduction to Programming | A 
+ Alice Johnson | CS201       | Data Structures             | B+
+ Bob Smith     | CS101       | Introduction to Programming | A-
+ Bob Smith     | MATH101     | Calculus I                  | B 
+ Carol Wilson  | CS201       | Data Structures             | A 
+ Carol Wilson  | MATH101     | Calculus I                  | A-
+(6 rows)
+
+postgres=# \q
+baita@MacBook-Air ~ % 
